@@ -401,7 +401,10 @@ class MultiWorld():
 
     def get_name_string_for_object(self, obj: HasNameAndPlayer) -> str:
         return obj.name if self.players == 1 else f'{obj.name} ({self.get_player_name(obj.player)})'
-
+    
+    def get_player_id(self, player: str) -> int:
+        return [ key for key, value in self.player_name.items() if value == player ][0]
+    
     def get_player_name(self, player: int) -> str:
         return self.player_name[player]
 
@@ -902,7 +905,7 @@ class CollectionState():
                         unreachable_locations.append(location)
                 if unreachable_locations:
                     next_advancements_per_player.append((player, unreachable_locations))
-
+                
                 # A previous player's locations processed in the current `while players_to_check` iteration could have
                 # collected items belonging to `player`, but now that all of `player`'s reachable locations have been
                 # found, it can be assumed that `player` will not gain any more reachable locations until another one of
@@ -983,7 +986,7 @@ class CollectionState():
             # Convert to a list of tuples.
             advancements_per_player = list(advancements_per_player_dict.items())
             del advancements_per_player_dict
-
+        
         if yield_each_sweep:
             # Return a generator that will yield at the end of each sweep iteration.
             return self._sweep_for_advancements_impl(advancements_per_player, True)
@@ -1216,7 +1219,7 @@ class Entrance:
             if not self.hide_path and self not in state.path:
                 state.path[self] = (self.name, state.path.get(self.parent_region, (self.parent_region.name, None)))
             return True
-
+        
         return False
 
     def connect(self, region: Region) -> None:

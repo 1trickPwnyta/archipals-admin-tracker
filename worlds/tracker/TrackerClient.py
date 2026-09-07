@@ -27,6 +27,8 @@ from Generate import main as GMain, mystery_argparse
 if TYPE_CHECKING:
     from kvui import GameManager
 
+from worlds.tracker.TrackerAPI import API
+
 if not sys.stdout:  # to make sure sm varia's "i'm working" dots don't break UT in frozen
     sys.stdout = open(os.devnull, 'w', encoding="utf-8")  # from https://stackoverflow.com/a/6735958
 
@@ -1845,34 +1847,53 @@ async def wait_for_items(ctx: TrackerGameContext)-> None:
         #if it didn't, then game_watcher will handle it
 
 async def main(args):
-    ctx = TrackerGameContext(args.connect, args.password, print_count=args.count, print_list=args.list)
-    ctx.auth = args.name
-    ctx.server_task = asyncio.create_task(server_loop(ctx), name="server loop")
-    ctx.run_generator()
+    if args.nogui and args.api:
+        tracker_core = TrackerCore(logger,False,False)
+        tracker_core.run_generator(None, None)
+        
+        for slot in tracker_core.multiworld.player_name.values():
+            ctx = TrackerGameContext(args.connect, args.password)
+            ctx.auth = slot
+            ctx.server_task = asyncio.create_task(server_loop(ctx), name=f"server loop {slot}")
+        
+        api: API = API(int(args.api), tracker_core.multiworld)
+        await api.launch()
+    else:
+        ctx = TrackerGameContext(args.connect, args.password, print_count=args.count, print_list=args.list)
+        ctx.auth = args.name
+        ctx.server_task = asyncio.create_task(server_loop(ctx), name="server loop")
+        ctx.run_generator()
 
-    if gui_enabled:
-        ctx.run_gui()
-    ctx.run_cli()
+        if gui_enabled:
+            ctx.run_gui()
+        ctx.run_cli()
 
-    await ctx.exit_event.wait()
-    await ctx.shutdown()
-
+        await ctx.exit_event.wait()
+        await ctx.shutdown()
 
 def launch(*args):
     parser = get_base_parser(description="Gameless Archipelago Client, for text interfacing.")
     parser.add_argument('--name', default=None, help="Slot Name to connect as.")
     if sys.stdout:  # If terminal output exists, offer gui-less mode
+        parser.add_argument('--api', default=False, help="Launch tracker as API on the specified port")
         parser.add_argument('--count', default=False, action='store_true', help="just return a count of in logic checks")
         parser.add_argument('--list', default=False, action='store_true', help="just return a list of in logic checks")
     parser.add_argument("url", nargs="?", help="Archipelago connection url")
     args = handle_url_arg(parser.parse_args(args))
-
+    
+    if args.nogui:
+        from logging import ERROR
+        logger.setLevel(ERROR)
+    
     if args.nogui and (args.count or args.list):
         if not args.name or not args.connect:
             logger.error("You need a valid URL when running in CLI mode")
             return
-        from logging import ERROR
-        logger.setLevel(ERROR)
+    
+    if args.nogui and args.api:
+        if int(args.api) < 1 or int(args.api) > 65535:
+            logger.error("You need to pick a port number between 1 and 65535")
+            return
 
     asyncio.run(main(args))
 

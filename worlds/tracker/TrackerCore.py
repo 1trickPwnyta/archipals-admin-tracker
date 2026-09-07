@@ -19,6 +19,7 @@ from argparse import Namespace
 from typing import Optional,Callable
 from NetUtils import NetworkItem, HintStatus
 
+from worlds.tracker.TrackerAPI import API
 
     
 REGEN_WORLDS = {name for name, world in AutoWorld.AutoWorldRegister.world_types.items() if getattr(world, "ut_can_gen_without_yaml", False)}
@@ -220,12 +221,14 @@ class TrackerCore():
     def regen_slots(self, world, slot_data, tempdir: str | None = None) -> bool:
         if callable(getattr(world, "interpret_slot_data", None)):
             temp = world.interpret_slot_data(slot_data)
-
+            
             # back compat for worlds that trigger regen with interpret_slot_data, will remove eventually
             if temp:
                 self.player_id = 1
                 self.re_gen_passthrough = {self.game: temp}
                 self.run_generator(slot_data, tempdir)
+                if API.instance:
+                    API.instance.multiworld = self.multiworld
             return True
         else:
             return False
@@ -340,12 +343,14 @@ class TrackerCore():
                     return
                 if not self.game:
                     raise "No Game found for slot, this should not happen ever"
-                g_args.multi = 1
-                g_args.game = {1: self.game}
-                g_args.player_ids = {1}
+                
+                if API.instance is None:
+                    g_args.multi = 1
+                    g_args.game = {1: self.game}
+                    g_args.player_ids = {1}
 
-                # TODO confirm that this will never not be filled
-                g_args = move_slots(g_args, self.slot_name)
+                    # TODO confirm that this will never not be filled
+                    g_args = move_slots(g_args, self.slot_name)
 
                 self.multiworld = self.TMain(g_args, seed)
                 assert len(self.cached_slot_data) == len(self.cached_multiworlds)
@@ -367,6 +372,7 @@ class TrackerCore():
                 temp_items = [item for item in items if item.code is None]
                 temp_precollect[player_id] = temp_items
             self.multiworld.precollected_items = temp_precollect
+            
         except TrackerException as e:
             self.multiworld = None
             self.tracker_disabled = True
@@ -447,7 +453,7 @@ class TrackerCore():
         for item_name, item_flags, item_loc, item_player in [(item_id_to_name[item.item],item.flags,item.location, item.player) for item in self.tracker_items_received if item.item > 0] + [(name,ItemClassification.progression,-1,-1) for name in self.manual_items]:
             try:
                 world_item = self.multiworld.create_item(item_name, self.player_id)
-                if item_loc>0 and item_player == self.slot and item_loc in location_id_to_name and location_id_to_name[item_loc] in self.multiworld.regions.location_cache[self.player_id]:
+                if item_loc>0 and item_player == self.slot and item_loc in location_id_to_name and location_id_to_name[item_loc] in self.multiworld.regions.location_cache[self.slot if API.instance else 1]:
                     world_item.location = self.multiworld.get_location(location_id_to_name[item_loc],self.player_id)
                 world_item.classification = world_item.classification | item_flags
                 state.collect(world_item, True)
@@ -455,9 +461,10 @@ class TrackerCore():
                     prog_items[world_item.name] += 1
                 if world_item.code is not None:
                     all_items[world_item.name] += 1
-            except Exception:
+            except Exception as e:
                 error_label: str = "Item name " + str(item_name) + " not able to be created"
                 self.add_log_line(TrackerLogLine(error_label, "", TrackerLogLineGroup.UT_ERROR))
+                print(e)
         state.sweep_for_advancements(
             locations=[location for location in self.multiworld.get_locations(self.player_id) if (not location.address)])
 
@@ -562,7 +569,10 @@ class TrackerCore():
         self.sort_log_lines()
         self.log_all_to_tab()
 
-        return CurrentTrackerState(all_items, prog_items, glitches_callback_list, events, event_locations, callback_list, regions, unconnected_entrances, readable_locations, hinted_locations, state, glitches_state)
+        state = CurrentTrackerState(all_items, prog_items, glitches_callback_list, events, event_locations, callback_list, regions, unconnected_entrances, readable_locations, hinted_locations, state, glitches_state)
+        if API.instance:
+            API.instance.state[self.slot_name] = state
+        return state
 
     def write_empty_yaml(self, game, player_name, tempdir):
         import json
@@ -573,6 +583,11 @@ class TrackerCore():
             f.write(json.dumps(yaml_out))
 
     def initalize_tracker_core(self,connected_cls:type[AutoWorld.World],raw_slot_data):
+        if API.instance:
+            self.launch_multiworld = API.instance.multiworld
+            self.multiworld = API.instance.multiworld
+            yaml_path, self.output_format, self.hide_excluded, self.use_split, enforce_deferred_connections, self.enable_glitched_logic, self.sorting_priorities, self.sorting_method = self._set_host_settings()
+        
         if getattr(connected_cls, "disable_ut", False):
             disabled_label: str = "World Author has requested UT be disabled on this world, please respect their decision"
             self.set_page(TrackerLogLine(disabled_label, "", TrackerLogLineGroup.UT_ERROR))
@@ -615,7 +630,7 @@ class TrackerCore():
                 self.sort_log_lines()
                 self.log_all_to_tab()
                 return
-
+            
             if self.slot_name in self.launch_multiworld.world_name_lookup:
                 internal_id = self.launch_multiworld.world_name_lookup[self.slot_name]
                 if self.launch_multiworld.worlds[internal_id].game == self.game:
