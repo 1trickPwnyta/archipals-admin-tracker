@@ -412,6 +412,9 @@ class TrackerGameContext(CommonContext):
         self.on_print_json({"data":packets}) # I hate this
 
     def updateTracker(self) -> CurrentTrackerState:
+        if API.instance:
+            API.instance.client[self.auth] = self
+        
         if self.disconnected_intentionally: return CurrentTrackerState.init_empty_state()
         self.tracker_core.set_missing_locations(self.missing_locations)
         self.tracker_core.set_items_received(self.tracker_items_received)
