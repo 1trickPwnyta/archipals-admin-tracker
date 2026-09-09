@@ -1449,6 +1449,10 @@ class TrackerGameContext(CommonContext):
                 if not (self.items_handling & 0b010):
                     self.update_tracker_items()
                     self.updateTracker()
+            elif API.instance and cmd == 'PrintJSON' and args["type"] == "CommandResult":
+                text = args["data"][0]["text"]
+                if text.startswith("Player Status"):
+                    API.instance.on_status(text)
         except Exception as e:
             e.args = e.args+("This is likely a UT error, make sure you have the correct tracker.apworld version and no duplicates",
                              "Then try to reproduce with the debug launcher and post in the Discord channel")
