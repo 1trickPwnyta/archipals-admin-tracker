@@ -38,7 +38,11 @@ class API:
         self.api.add_api_route("/slots/{slot}/locations/reachable", self.get_slots_slot_locations_reachable, methods=[ "GET" ])
         #self.api.add_api_route("/debug", self.get_debug, methods=[ "GET" ])
         
-        config = uvicorn.Config(self.api, host="0.0.0.0", port=self.port, log_level="info")
+        log_config = uvicorn.config.LOGGING_CONFIG
+        log_config["handlers"]["default"]["stream"] = "ext://sys.stdout"
+        log_config["loggers"]["uvicorn"]["level"] = "INFO"
+        
+        config = uvicorn.Config(self.api, host="0.0.0.0", port=self.port, log_config=log_config)
         server = uvicorn.Server(config)
         await server.serve()
     
@@ -75,7 +79,7 @@ class API:
         }
     
     def get_slots(self):
-        return self.multiworld.player_name
+        return list(self.multiworld.player_name.values())
     
     async def get_slots_slot(self, slot: str):
         await self.update_status()

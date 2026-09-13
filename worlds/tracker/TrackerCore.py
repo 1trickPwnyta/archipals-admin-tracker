@@ -20,7 +20,7 @@ from typing import Optional,Callable
 from NetUtils import NetworkItem, HintStatus
 
 from worlds.tracker.TrackerAPI import API
-
+from pathlib import Path
     
 REGEN_WORLDS = {name for name, world in AutoWorld.AutoWorldRegister.world_types.items() if getattr(world, "ut_can_gen_without_yaml", False)}
 
@@ -279,7 +279,7 @@ class TrackerCore():
             tracker_settings["use_split_map_icons"], defered_mode, tracker_settings['display_glitched_logic'], \
             sorting_priorities, sorting_method
     
-    def run_generator(self, slot_data: dict | None = None, override_yaml_path: str | None = None, super_override_yaml_path: str|None = None):
+    def run_generator(self, slot_data: dict | None = None, override_yaml_path: str | None = None, super_override_yaml_path: str|None = None, initial_for_api: bool = False):
         def move_slots(args: "Namespace", slot_name: str):
             """
             helper function to copy all the proper option values into slot 1,
@@ -314,6 +314,8 @@ class TrackerCore():
                 args[option_name].update(player_mapping)
 
         try:
+            if override_yaml_path:
+                override_yaml_path = Path(override_yaml_path).resolve()
             yaml_path, self.output_format, self.hide_excluded, self.use_split, enforce_deferred_connections, self.enable_glitched_logic, self.sorting_priorities, self.sorting_method = self._set_host_settings()
             if self.enforce_deferred_connections is None: self.enforce_deferred_connections = enforce_deferred_connections
             # strip command line args, they won't be useful from the client anyway
@@ -333,9 +335,9 @@ class TrackerCore():
             if self.quit_after_update:
                 from logging import ERROR
                 args.log_level = ERROR
-
+            
             g_args, seed = GMain(args)
-            if slot_data or override_yaml_path:
+            if not initial_for_api and (slot_data or override_yaml_path):
                 if slot_data and slot_data in self.cached_slot_data:
                     print("found cached multiworld!")
                     index = next(i for i, s in enumerate(self.cached_slot_data) if s == slot_data)
@@ -351,7 +353,7 @@ class TrackerCore():
 
                     # TODO confirm that this will never not be filled
                     g_args = move_slots(g_args, self.slot_name)
-
+                
                 self.multiworld = self.TMain(g_args, seed)
                 assert len(self.cached_slot_data) == len(self.cached_multiworlds)
                 self.cached_multiworlds.append(self.multiworld)
@@ -636,7 +638,7 @@ class TrackerCore():
                 if self.launch_multiworld.worlds[internal_id].game == self.game:
                     self.multiworld = self.launch_multiworld
                     self.player_id = internal_id
-                    self.regen_slots(self.get_current_world(), raw_slot_data)
+                    self.regen_slots(self.get_current_world(), raw_slot_data, getattr(self, "players_folder", None))
                 elif False: #For those who came before
                     raise "We remember o7"
                 else:

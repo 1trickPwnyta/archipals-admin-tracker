@@ -389,7 +389,7 @@ class TrackerGameContext(CommonContext):
                                                  "locations": unknown_locations,
                                                  "create_as_hint": 0}]))
 
-    def __init__(self, server_address, password, no_connection: bool = False, print_list: bool = False, print_count: bool = False, api: bool = False):
+    def __init__(self, server_address, password, no_connection: bool = False, print_list: bool = False, print_count: bool = False, api: bool = False, players_folder: str|None = None):
         if no_connection:
             from worlds import network_data_package
             self.item_names = self.NameLookupDict(self, "item")
@@ -402,6 +402,7 @@ class TrackerGameContext(CommonContext):
         self.print_list = print_list
         self.print_count = print_count
         self.api = api
+        self.players_folder = players_folder
         self.location_icons = []
         self.root_pack_path = None
         self.map_id = None
@@ -1355,7 +1356,7 @@ class TrackerGameContext(CommonContext):
             await self.send_connect()
 
     def run_generator(self):
-        self.tracker_core.run_generator(None, None)
+        self.tracker_core.run_generator(None)
         self.use_split = self.tracker_core.use_split #fancy hack
 
     def on_package(self, cmd: str, args: dict):
@@ -1373,6 +1374,7 @@ class TrackerGameContext(CommonContext):
                 if self.checksums[self.game] != connected_cls.get_data_package_data()["checksum"]:
                     logger.warning("*****\nWarning: the local datapackage for the connected game does not match the server's datapackage\n*****")
                     logger.error(f"Local checksum = {connected_cls.get_data_package_data()['checksum']} | remote checksum = {self.checksums[self.game]}")
+                self.tracker_core.players_folder = self.players_folder
                 self.tracker_core.initalize_tracker_core(connected_cls,args["slot_data"])
                 if self.tracker_core.tracker_disabled:
                     logger.error("World Author has requested UT be disabled on this world, please respect their decision")
@@ -1861,10 +1863,10 @@ async def wait_for_items(ctx: TrackerGameContext)-> None:
 async def main(args):
     if args.nogui and args.api:
         tracker_core = TrackerCore(logger,False,False)
-        tracker_core.run_generator(None, None)
+        tracker_core.run_generator(None, args.api_players, initial_for_api=True)
         
         for slot in tracker_core.multiworld.player_name.values():
-            ctx = TrackerGameContext(args.connect, args.password, api=True)
+            ctx = TrackerGameContext(args.connect, args.password, api=True, players_folder=args.api_players)
             ctx.auth = slot
             ctx.server_task = asyncio.create_task(server_loop(ctx), name=f"server loop {slot}")
             
@@ -1888,6 +1890,7 @@ def launch(*args):
     parser.add_argument('--name', default=None, help="Slot Name to connect as.")
     if sys.stdout:  # If terminal output exists, offer gui-less mode
         parser.add_argument('--api', default=False, help="Launch tracker as API on the specified port")
+        parser.add_argument('--api-players', default='./players', help="Path to the players folder when using the API")
         parser.add_argument('--count', default=False, action='store_true', help="just return a count of in logic checks")
         parser.add_argument('--list', default=False, action='store_true', help="just return a list of in logic checks")
     parser.add_argument("url", nargs="?", help="Archipelago connection url")
