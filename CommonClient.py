@@ -452,6 +452,9 @@ class CommonContext:
         if self.server and self.server.socket is not None:
             await self.server.socket.close()
         self.reset_server_state()
+        
+    def connection_failed(self):
+        return
 
     def reset_server_state(self):
         self.auth = None
@@ -908,6 +911,8 @@ async def server_loop(ctx: CommonContext, address: typing.Optional[str] = None) 
             logger.info(f"... automatically reconnecting in {ctx.current_reconnect_delay} seconds")
             assert ctx.autoreconnect_task is None
             ctx.autoreconnect_task = asyncio.create_task(server_autoreconnect(ctx), name="server auto reconnect")
+        else:
+            ctx.connection_failed()
         ctx.current_reconnect_delay *= 2
 
 

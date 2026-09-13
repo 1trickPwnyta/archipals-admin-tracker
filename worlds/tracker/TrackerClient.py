@@ -371,6 +371,10 @@ class TrackerGameContext(CommonContext):
             return self.items_received + self.local_items
         else:
             return self.items_received
+    
+    def connection_failed(self):
+        if self.api:
+            sys.exit(1)
 
     def update_tracker_items(self):
         self.local_items = [self.locations_info[location] for location in self.checked_locations
@@ -385,7 +389,7 @@ class TrackerGameContext(CommonContext):
                                                  "locations": unknown_locations,
                                                  "create_as_hint": 0}]))
 
-    def __init__(self, server_address, password, no_connection: bool = False, print_list: bool = False, print_count: bool = False):
+    def __init__(self, server_address, password, no_connection: bool = False, print_list: bool = False, print_count: bool = False, api: bool = False):
         if no_connection:
             from worlds import network_data_package
             self.item_names = self.NameLookupDict(self, "item")
@@ -397,6 +401,7 @@ class TrackerGameContext(CommonContext):
         self.quit_after_update = print_list or print_count
         self.print_list = print_list
         self.print_count = print_count
+        self.api = api
         self.location_icons = []
         self.root_pack_path = None
         self.map_id = None
@@ -1859,10 +1864,10 @@ async def main(args):
         tracker_core.run_generator(None, None)
         
         for slot in tracker_core.multiworld.player_name.values():
-            ctx = TrackerGameContext(args.connect, args.password)
+            ctx = TrackerGameContext(args.connect, args.password, api=True)
             ctx.auth = slot
             ctx.server_task = asyncio.create_task(server_loop(ctx), name=f"server loop {slot}")
-        
+            
         api: API = API(int(args.api), tracker_core.multiworld)
         await api.launch()
     else:

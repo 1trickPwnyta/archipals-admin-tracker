@@ -2,7 +2,7 @@ from __future__ import annotations
 import time
 import re
 from typing import TYPE_CHECKING
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, status
 import uvicorn
 from BaseClasses import MultiWorld, Location
 from worlds import AutoWorld
@@ -79,28 +79,40 @@ class API:
     
     async def get_slots_slot(self, slot: str):
         await self.update_status()
-        reachable_locations_count = len(self.get_slots_slot_locations_reachable(slot))
-        return {
-            "locations": len(self.get_slots_slot_locations(slot)),
-            "checked_locations": len(self.get_slots_slot_locations_checked(slot)),
-            "missing_locations": len(self.get_slots_slot_locations_missing(slot)),
-            "reachable_locations": reachable_locations_count,
-            "bk_mode": reachable_locations_count == 0,
-            "go_mode": self.multiworld.has_beaten_game(self.state[slot].state, self.multiworld.get_player_id(slot)),
-            "goal_complete": self.status[slot]["goal_complete"] if slot in self.status else None
-        }
+        if slot in self.state:
+            reachable_locations_count = len(self.get_slots_slot_locations_reachable(slot))
+            return {
+                "locations": len(self.get_slots_slot_locations(slot)),
+                "checked_locations": len(self.get_slots_slot_locations_checked(slot)),
+                "missing_locations": len(self.get_slots_slot_locations_missing(slot)),
+                "reachable_locations": reachable_locations_count,
+                "bk_mode": reachable_locations_count == 0,
+                "go_mode": self.multiworld.has_beaten_game(self.state[slot].state, self.multiworld.get_player_id(slot)),
+                "goal_complete": self.status[slot]["goal_complete"] if slot in self.status else None
+            }
+        else:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND);
     
     def get_slots_slot_locations(self, slot: str):
         return [ *self.get_slots_slot_locations_checked(slot), *self.get_slots_slot_locations_missing(slot) ]
     
     def get_slots_slot_locations_checked(self, slot: str):
-        return [ self.find_world(slot).location_id_to_name[location] for location in self.client[slot].checked_locations ]
+        if slot in self.client:
+            return [ self.find_world(slot).location_id_to_name[location] for location in self.client[slot].checked_locations ]
+        else:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND);
     
     def get_slots_slot_locations_missing(self, slot: str):
-        return [ self.find_world(slot).location_id_to_name[location] for location in self.client[slot].missing_locations ]
+        if slot in self.client:
+            return [ self.find_world(slot).location_id_to_name[location] for location in self.client[slot].missing_locations ]
+        else:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND);
     
     def get_slots_slot_locations_reachable(self, slot: str):
-        return self.state[slot].in_logic_locations
+        if slot in self.state:
+            return self.state[slot].in_logic_locations
+        else:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND);
         
     def get_debug(self):
-        return self.client["1tp-banjot"].stored_data
+        return {}
