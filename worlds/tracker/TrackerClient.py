@@ -1869,7 +1869,7 @@ async def main(args):
             ctx = TrackerGameContext(args.connect, args.password, api=True, players_folder=args.api_players)
             ctx.auth = slot
             ctx.server_task = asyncio.create_task(server_loop(ctx), name=f"server loop {slot}")
-            
+        
         api: API = API(int(args.api), tracker_core.multiworld)
         await api.launch()
     else:

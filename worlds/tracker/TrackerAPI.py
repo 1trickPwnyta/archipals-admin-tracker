@@ -21,6 +21,7 @@ class API:
         self.api: FastAPI = None
         self.multiworld: MultiWorld = multiworld
         self.client: dict[str, TrackerGameContext] = {}
+        self.client_multiworld: dict[str, MultiWorld] = {}
         self.state: dict[str, CurrentTrackerState] = {}
         self.status: dict[str, dict[str, Any]] = {}
         self.status_time: float = 0.0
@@ -51,7 +52,8 @@ class API:
         return self.client[self.multiworld.player_name[1]]
     
     def find_world(self, slot) -> "AutoWorld.World":
-        return self.multiworld.worlds[self.multiworld.get_player_id(slot)]
+        world = self.client_multiworld[slot] if slot in self.client_multiworld else self.multiworld
+        return world.worlds[world.get_player_id(slot)]
     
     async def update_status(self) -> bool:
         now = time.time()

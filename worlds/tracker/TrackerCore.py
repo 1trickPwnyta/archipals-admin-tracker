@@ -228,7 +228,7 @@ class TrackerCore():
                 self.re_gen_passthrough = {self.game: temp}
                 self.run_generator(slot_data, tempdir)
                 if API.instance:
-                    API.instance.multiworld = self.multiworld
+                    API.instance.client_multiworld[self.slot_name] = self.multiworld
             return True
         else:
             return False
@@ -585,6 +585,7 @@ class TrackerCore():
             f.write(json.dumps(yaml_out))
 
     def initalize_tracker_core(self,connected_cls:type[AutoWorld.World],raw_slot_data):
+        print(f"Initializing tracker core for player {self.slot}.")
         if API.instance:
             self.launch_multiworld = API.instance.multiworld
             self.multiworld = API.instance.multiworld
