@@ -74,7 +74,7 @@ class API:
             self.status[slot] = { "goal_complete": "and has finished" in line }
 
     async def get_(self):
-        return { slot: await self.get_slots_slot(slot) for slot in self.state.keys() }
+        return { slot: await self.get_slots_slot(slot) for slot in self.state.keys() if slot in self.client.keys() }
 
     async def get_status(self):
         stale, age = await self.update_status()
