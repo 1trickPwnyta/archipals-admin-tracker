@@ -30,6 +30,7 @@ class API:
         print(f"Launching Universal Tracker API on port {self.port}.")
         
         self.api = FastAPI()
+        self.api.add_api_route("/", self.get_, methods=[ "GET" ])
         self.api.add_api_route("/status", self.get_status, methods=[ "GET" ])
         self.api.add_api_route("/slots", self.get_slots, methods=[ "GET" ])
         self.api.add_api_route("/slots/{slot}", self.get_slots_slot, methods=[ "GET" ])
@@ -71,6 +72,9 @@ class API:
             match = re.search(r"(.*) has \d.*", line)
             slot = match.group(1)
             self.status[slot] = { "goal_complete": "and has finished" in line }
+
+    async def get_(self):
+        return { slot: await self.get_slots_slot(slot) for slot in self.state.keys() }
 
     async def get_status(self):
         stale, age = await self.update_status()
